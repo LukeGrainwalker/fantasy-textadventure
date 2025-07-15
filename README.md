@@ -1,6 +1,6 @@
-# fantasy-textadventure
-This is a textadventure in a fantasy world.
+# utp - under the pumpkin 
+This is a Textadventure, in which you are shrunk to the size of an ant
+and explore what lies beneath a pumpkin.
 
-It is a bigger version of the textadventure from this video: https://www.youtube.com/watch?v=KLQvQLU5bvI
+It it originated from the textadventure in this video: https://www.youtube.com/watch?v=KLQvQLU5bvI
 
-but be careful, the load function is not finished yet
