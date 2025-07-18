@@ -85,7 +85,7 @@ class Character:
         print(self.name + " died")
 
     def drop_item(self, m):
-        m.state[m.x][m.y].item.append(self.drop)
+        m.state[m.x][m.y].item.extend(self.drop)
 
 class Ant(Character):
     def __init__(self):
@@ -293,21 +293,25 @@ def backwards(p, m):
 class Configure:
     def __init__(self, filename):
         if os.path.isfile(filename):
-            with open(filename) as file:
+            with open(filename, "rb") as file:
                 self.conf = tomli.load(file)
         else:
             self.conf = []
     
     def safe(self, p, m):
         if "safefile" in self.conf:
-            pickle.dump([p, m], self.conf["safefile"])
+            with open(self.conf["safefile"], "wb") as f:
+                pickle.dump([p, m], f)
         else:
             print("no safefile configured")
+    
     def load(self, p, m):
         if "safefile" in self.conf:
-            [p, m] = pickle.load(self.conf["safefile"])
+            with open(self.conf["safefile"], "rb") as f:
+                [p, m] = pickle.load(f)
         else:
             print("no safefile configured")
+        return [p, m]
 
 
 conf = Configure('config.toml')
@@ -439,7 +443,7 @@ Commands = {
     'left' : left,
     'backwards' : backwards,
     'fight' : fight,
-    'save' : safe,
+    'safe' : safe,
     'load' : load,
     'rest' : rest,
     'talk_with' : talk_with,
@@ -456,9 +460,10 @@ if __name__ == '__main__':
     p = Player(name, 200, 100, Inventory(10))
     print("(type help to list the commands available)\n")
     while True:
-        command = input(name + "> ").lower().split(" ")
+        command = input(p.name + "> ").lower().split(" ")
         if command[0] in Commands:
-            Commands[command[0]](p, map)
+            if t := Commands[command[0]](p, map):
+                [p, map] = t
         else:
             print("You run around in circles and don't know what to do.")
         map.print_state()
