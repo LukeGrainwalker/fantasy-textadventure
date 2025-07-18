@@ -1,7 +1,8 @@
 import random
 import os
 from item import *
-
+import pickle
+import tomli
 
 class Inventory:
     def __init__(self, length):
@@ -84,15 +85,15 @@ class Character:
         print(self.name + " died")
 
     def drop_item(self, m):
-        m.state[m.x][m.y].item.append(self.drop)
+        m.state[m.x][m.y].item.extend(self.drop)
 
-class Goblin(Character):
-    def __init__(self, xp):
-        Character.__init__(self, 100, 10, xp, 0, Club(), "Goblin")
+class Ant(Character):
+    def __init__(self):
+        Character.__init__(self, 10, 4, 10, 0, [], "Ant")
 
-class Ork(Character):
-    def __init__(self, xp):
-        Character.__init__(self, 300, 30, xp, 0, Dagger(), "Ork")
+class Bug(Character):
+    def __init__(self):
+        Character.__init__(self, 30, 4, 10, 0, [], "Bug")
 
 class Hermit(Character):
     def __init__(self):
@@ -119,12 +120,12 @@ class Supply:
         if rand == 4:
             return Supply([Apple(), Book()])
 
-class Trader(Hermit):
+class Trader(Character):
     def __init__(self):
         Character.__init__(self, 100, 4, 50, 1, [], "Trader")
         self.supply = Supply.gen_supply()
 
-    def trade(self, p, m, inventory):
+    def trade(self, p, m):
         print("(type buy if you want to buy or type sell if you want to sell)")
         inp = input("trade>")
         if inp == "buy":
@@ -137,27 +138,28 @@ class Trader(Hermit):
                     if inp == i.name:
                         inp = input("Do you want to buy " + i.name + " J/n : ")
                         if inp == "J":
-                            inventory.append_item(i)
+                            p.inventory.append_item(i)
                             p.money -= i.worth
                             self.supply.remove(inp)
         elif inp == "sell":
             while inp != "quit":
-                list_inventory(p, m, inventory)
+                list_inventory(p, m)
                 inp = input("sell>")
-                for i in inventory.slots:
+                for i in p.inventory.slots:
                     if inp == i.name:
                         inp = input("Do you want to sell " + i.name + " J/n : ")
                         if inp == "J":
                             p.money += i.worth
-                            inventory.slots.remove(i)
+                            p.inventory.slots.remove(i)
 
 
 class Player(Character):
-    def __init__(self, name, hp, ad):
+    def __init__(self, name, hp, ad, i):
         self.xp = 0
         Character.__init__(self, hp, ad, self.xp, 1, [], name)
         self.max_hp = hp
         self.money = 0
+        self.inventory = i
 
     def die(self):
         exit("Wasted. Try again.")
@@ -169,10 +171,9 @@ class Player(Character):
 def get_enemies(self):
         return self.state[self.x][self.y].enemies
 class Field:
-    def __init__(self, enemies, item, in_ground):
+    def __init__(self, enemies, item):
         self.enemies = enemies
         self.item = item
-        self.in_ground = in_ground
 
     def print_state(self):
         print("You look around and see" , end=' ')
@@ -182,22 +183,31 @@ class Field:
             print("a " + i.name, end=" ")
         print("")
 
+    #@staticmethod
+    #def gen_random():
+    #    rand = random.randint(0, 5)
+    #    if rand == 0:
+    #        return Field([], [], [])
+    #    if rand == 1:
+    #        return Field([Ork(random.randint(0, 5)), Hermit()], [], [])
+    #    if rand == 2:
+    #        return Field([Goblin(random.randint(0, 5)), Goblin(random.randint(0, 5)), Ork(random.randint(0, 5))], [Chest()], [])
+    #    if rand == 3:
+    #        return Field([Ork(random.randint(0, 5)), Trader()], [], [])
+    #    if rand == 4:
+    #        return Field([Goblin(random.randint(0, 5)),
+    #        Goblin(random.randint(0, 5)), Ork(random.randint(0, 5))], [], [Chest_in_ground()])
+    #    if rand == 5:
+    #        return Field([Goblin(random.randint(0, 5)), Goblin(random.randint(0, 5)), Ork(random.randint(0, 5))], [], [])
+    @staticmethod
+    def get_contain(num, items):
+        if (n := random.randint(0, num*2)-num) > 0: 
+            return [random.choice(items) for i in range(n)]
+        else:
+            return []
     @staticmethod
     def gen_random():
-        rand = random.randint(0, 5)
-        if rand == 0:
-            return Field([], [], [])
-        if rand == 1:
-            return Field([Ork(random.randint(0, 5)), Hermit()], [], [])
-        if rand == 2:
-            return Field([Goblin(random.randint(0, 5)), Goblin(random.randint(0, 5)), Ork(random.randint(0, 5))], [Chest()], [])
-        if rand == 3:
-            return Field([Ork(random.randint(0, 5)), Trader()], [], [])
-        if rand == 4:
-            return Field([Goblin(random.randint(0, 5)),
-            Goblin(random.randint(0, 5)), Ork(random.randint(0, 5))], [], [Chest_in_ground()])
-        if rand == 5:
-            return Field([Goblin(random.randint(0, 5)), Goblin(random.randint(0, 5)), Ork(random.randint(0, 5))], [], [])
+        return Field(Field.get_contain(4, [Ant(), Bug()]), Field.get_contain(2, [Chest()])) 
 
 class Map:
     def __init__(self, width, height):
@@ -209,16 +219,16 @@ class Map:
             for j in range(height):
                 fields.append(Field.gen_random())
             self.state.append(fields)
-        for gx in range(width):
-            for gy in range(height):
-                if len(self.state[gx][gy].in_ground) != 0:
-                    rand = random.randint(0, 1)
-                    if rand == 0:
-                        content = "this is the signpost to an treasure: go right then backward, and then dig"
-                        self.state[gx-1][gy-1].item.append(Chest([Writen_Book("treasure", content)]))
-                    if rand == 1:
-                        content = "this is the signpost to an treasure: go right then dig"
-                        self.state[gx-1][gy].item.append(Chest([Writen_Book("treasure", content)]))
+        #for gx in range(width):
+        #    for gy in range(height):
+        #        if len(self.state[gx][gy].in_ground) != 0:
+        #            rand = random.randint(0, 1)
+        #            if rand == 0:
+        #                content = "this is the signpost to an treasure: go right then backward, and then dig"
+        #                self.state[gx-1][gy-1].item.append(Chest([Writen_Book("treasure", content)]))
+        #            if rand == 1:
+        #                content = "this is the signpost to an treasure: go right then dig"
+        #                self.state[gx-1][gy].item.append(Chest([Writen_Book("treasure", content)]))
 
     def print_state(self):
         self.state[self.x][self.y].print_state()
@@ -268,70 +278,98 @@ class Map:
 
 
 
-def forward(p, m, inventory):
+def forward(p, m):
     m.forward()
 
-def right(p, m, inventory):
+def right(p, m):
     m.right()
 
-def left(p, m, inventory):
+def left(p, m):
     m.left()
 
-def backwards(p, m, inventory):
+def backwards(p, m):
     m.backwards()
 
-def save(p, m, inventory):
-    n = input("name:")
-    f = open('/home/pi/Phthon-Projekte/textadventure/'+n, 'w')
-    print(p.hp, file=f, flush=True)
-    print(p.ad, file=f, flush=True)
-    print(p.xp, file=f, flush=True)
-    print(p.harmles, file=f, flush=True)
-    print(p.drop, file=f, flush=True)
-    print(p.name, file=f, flush=True)
-    print(p.max_hp, file=f, flush=True)
-    print(p.money, file=f, flush=True)
-    for x in m.state:
-        for y in x:
-            for i1 in y.enemies:
-                print(i1.name, file=f, flush=True)
-            for i2 in y.item:
-                print(i2.name, file=f, flush=True)
-            for i3 in y.in_ground:
-                print(i3.name, file=f, flush=True)
-    print(m.x, file=f, flush=True)
-    print(m.y, file=f, flush=True)
-    print(inventory.slots, file=f, flush=True)
-    print(inventory.length, file=f, flush=True)
-
-def load(p, m, inventory):
-    os.chdir("/home/pi/Phthon-Projekte/textadventure")
-    files = os.system('ls')
-    print(files)
-    file_name = input("file:")
-    f = open('/home/pi/Phthon-Projekte/textadventure/'+file_name, 'r')
-    text = read(f).split('\n')
+class Configure:
+    def __init__(self, filename):
+        if os.path.isfile(filename):
+            with open(filename, "rb") as file:
+                self.conf = tomli.load(file)
+        else:
+            self.conf = []
+    
+    def safe(self, p, m):
+        if "safefile" in self.conf:
+            with open(self.conf["safefile"], "wb") as f:
+                pickle.dump([p, m], f)
+        else:
+            print("no safefile configured")
+    
+    def load(self, p, m):
+        if "safefile" in self.conf:
+            with open(self.conf["safefile"], "rb") as f:
+                [p, m] = pickle.load(f)
+        else:
+            print("no safefile configured")
+        return [p, m]
 
 
-def quit_game(p, m, inventory):
+conf = Configure('config.toml')
+
+safe = conf.safe
+load = conf.load
+#def save(p, m, inventory):
+#    n = input("name:")
+#    f = open('/home/pi/Phthon-Projekte/textadventure/'+n, 'w')
+#    print(p.hp, file=f, flush=True)
+#    print(p.ad, file=f, flush=True)
+#    print(p.xp, file=f, flush=True)
+#    print(p.harmles, file=f, flush=True)
+#    print(p.drop, file=f, flush=True)
+#    print(p.name, file=f, flush=True)
+#    print(p.max_hp, file=f, flush=True)
+#    print(p.money, file=f, flush=True)
+#    for x in m.state:
+#        for y in x:
+#            for i1 in y.enemies:
+#                print(i1.name, file=f, flush=True)
+#            for i2 in y.item:
+#                print(i2.name, file=f, flush=True)
+#            for i3 in y.in_ground:
+#                print(i3.name, file=f, flush=True)
+#    print(m.x, file=f, flush=True)
+#    print(m.y, file=f, flush=True)
+#    print(inventory.slots, file=f, flush=True)
+#    print(inventory.length, file=f, flush=True)
+#
+#def load(p, m, inventory):
+#    os.chdir("/home/pi/Phthon-Projekte/textadventure")
+#    files = os.system('ls')
+#    print(files)
+#    file_name = input("file:")
+#    f = open('/home/pi/Phthon-Projekte/textadventure/'+file_name, 'r')
+#    text = read(f).split('\n')
+
+
+def quit_game(p, m):
     print("You commit suicide and leave this world.")
     exit(0)
 
-def print_help(p, m, inventory):
+def print_help(p, m):
     print("folloving commands are available: ", end=' ')
     for i in Commands.keys():
         print(i, end=", ")
     print("")
 
-def pickup(p, m, inventory):
+def pickup(p, m):
     item = m.get_item()
     for i in item:
         if i.name != "chest":
-            inventory.append_item(i)
+            p.inventory.append_item(i)
             item.remove(i)
-    list_inventory(p, m, inventory)
+    #list_inventory(p, m, inventory)
 
-def fight(p, m, inventory):
+def fight(p, m):
     enemies = m.get_enemies()
     #print(enemies[0].name)
     while len(enemies) > 0:
@@ -349,10 +387,10 @@ def fight(p, m, inventory):
         else:
             break
 
-def rest(p, m, i):
+def rest(p, m):
     p.rest()
 
-def talk_with(p, m, inventory):
+def talk_with(p, m):
     enemies = m.get_enemies()
     #print("t")
     for i in enemies:
@@ -361,35 +399,35 @@ def talk_with(p, m, inventory):
         else:
             print("Ther is no Hermit wich you can talk with.")
 
-def trade(p, m, inventory):
+def trade(p, m):
     enemies = m.get_enemies()
     #print("t")
     for i in enemies:
         if i.name == "Trader":
-            i.trade(p, m, inventory)
+            i.trade(p, m)
         else:
             print("Ther is no Trater wich you can trade with.")
 
-def list_inventory(p, m, inventory):
+def list_inventory(p, m):
     print("inventory:" , end='')
-    for i in inventory.slots:
+    for i in p.inventory.slots:
         print(" a " + i.name, end="")
     print("")
 
-def open_chest(p, m, inventory):
+def open_chest(p, m):
     item = m.get_item()
     if item[0].name == "chest":
-        item[0].open_chest(inventory)
+        item[0].open_chest(p.inventory)
 
-def dig(p, m, inventory):
+def dig(p, m):
     print("you dig and see:", end=' ')
     for i in m.get_in_ground():
         print(i.name)
         m.ad_chest(i.loot)
     print(' .')
 
-def read_book(p, m, inventory):
-    for i in inventory.slots:
+def read_book(p, m):
+    for i in p.inventory.slots:
         if i.name == 'book:treasure':
             print(i.show_content())
         else:
@@ -405,7 +443,7 @@ Commands = {
     'left' : left,
     'backwards' : backwards,
     'fight' : fight,
-    'save' : save,
+    'safe' : safe,
     'load' : load,
     'rest' : rest,
     'talk_with' : talk_with,
@@ -419,13 +457,13 @@ Commands = {
 if __name__ == '__main__':
     name = input("Enter your name ")
     map = Map(5, 5)
-    p = Player(name, 200, 100)
-    i = Inventory(10)
+    p = Player(name, 200, 100, Inventory(10))
     print("(type help to list the commands available)\n")
     while True:
-        command = input(name + "> ").lower().split(" ")
+        command = input(p.name + "> ").lower().split(" ")
         if command[0] in Commands:
-            Commands[command[0]](p, map, i)
+            if t := Commands[command[0]](p, map):
+                [p, map] = t
         else:
             print("You run around in circles and don't know what to do.")
         map.print_state()
